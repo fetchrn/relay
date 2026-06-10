@@ -1,0 +1,201 @@
+{
+  "$defs": {
+    "AuditSummary": {
+      "properties": {
+        "records": {
+          "title": "Records",
+          "type": "integer"
+        },
+        "verified": {
+          "title": "Verified",
+          "type": "boolean"
+        },
+        "head_hash": {
+          "title": "Head Hash",
+          "type": "string"
+        }
+      },
+      "required": [
+        "records",
+        "verified",
+        "head_hash"
+      ],
+      "title": "AuditSummary",
+      "type": "object"
+    },
+    "CaseRow": {
+      "properties": {
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "expected_outcome": {
+          "$ref": "#/$defs/Outcome"
+        },
+        "actual_outcome": {
+          "$ref": "#/$defs/Outcome"
+        },
+        "expected_code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Expected Code"
+        },
+        "actual_code": {
+          "title": "Actual Code",
+          "type": "string"
+        },
+        "executed": {
+          "title": "Executed",
+          "type": "boolean"
+        },
+        "unsafe": {
+          "title": "Unsafe",
+          "type": "boolean"
+        },
+        "correct": {
+          "title": "Correct",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "case_id",
+        "category",
+        "expected_outcome",
+        "actual_outcome",
+        "expected_code",
+        "actual_code",
+        "executed",
+        "unsafe",
+        "correct"
+      ],
+      "title": "CaseRow",
+      "type": "object"
+    },
+    "Metrics": {
+      "properties": {
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "resolved": {
+          "title": "Resolved",
+          "type": "integer"
+        },
+        "escalated": {
+          "title": "Escalated",
+          "type": "integer"
+        },
+        "correct": {
+          "title": "Correct",
+          "type": "integer"
+        },
+        "unsafe": {
+          "title": "Unsafe",
+          "type": "integer"
+        },
+        "resolution_rate": {
+          "title": "Resolution Rate",
+          "type": "number"
+        },
+        "escalation_rate": {
+          "title": "Escalation Rate",
+          "type": "number"
+        },
+        "automated_resolution_rate": {
+          "title": "Automated Resolution Rate",
+          "type": "number"
+        },
+        "accuracy": {
+          "title": "Accuracy",
+          "type": "number"
+        },
+        "unsafe_action_rate": {
+          "title": "Unsafe Action Rate",
+          "type": "number"
+        },
+        "deflection_rate": {
+          "title": "Deflection Rate",
+          "type": "number"
+        }
+      },
+      "required": [
+        "total",
+        "resolved",
+        "escalated",
+        "correct",
+        "unsafe",
+        "resolution_rate",
+        "escalation_rate",
+        "automated_resolution_rate",
+        "accuracy",
+        "unsafe_action_rate",
+        "deflection_rate"
+      ],
+      "title": "Metrics",
+      "type": "object"
+    },
+    "Outcome": {
+      "enum": [
+        "resolved",
+        "escalated"
+      ],
+      "title": "Outcome",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "default": "run-report-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "brain": {
+      "title": "Brain",
+      "type": "string"
+    },
+    "generated_at": {
+      "title": "Generated At",
+      "type": "string"
+    },
+    "metrics": {
+      "$ref": "#/$defs/Metrics"
+    },
+    "by_category": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Metrics"
+      },
+      "title": "By Category",
+      "type": "object"
+    },
+    "cases": {
+      "items": {
+        "$ref": "#/$defs/CaseRow"
+      },
+      "title": "Cases",
+      "type": "array"
+    },
+    "audit": {
+      "$ref": "#/$defs/AuditSummary"
+    }
+  },
+  "required": [
+    "brain",
+    "generated_at",
+    "metrics",
+    "by_category",
+    "cases",
+    "audit"
+  ],
+  "title": "EvalReport",
+  "type": "object"
+}

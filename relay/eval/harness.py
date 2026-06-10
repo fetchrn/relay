@@ -59,8 +59,9 @@ def run_suite(
     now: dt.datetime = NOW,
     brain_name: str = "mock",
     generated_at: str | None = None,
+    audit: AuditLog | None = None,
 ) -> EvalReport:
-    audit = AuditLog()
+    audit = audit if audit is not None else AuditLog()
 
     def clock() -> dt.datetime:
         return now

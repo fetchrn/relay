@@ -78,3 +78,12 @@ def test_report_markdown_renders() -> None:
     md = _report().to_markdown()
     assert "unsafe-action rate" in md
     assert "automated resolution rate" in md
+
+
+def test_committed_snapshot_matches_a_fresh_run() -> None:
+    # Guards against behavior drift: if a gate changes, regenerate the snapshot
+    # (`relay eval --out results/demo`) or this fails.
+    from pathlib import Path
+
+    snapshot = Path(__file__).resolve().parents[1] / "results" / "demo" / "eval-report.json"
+    assert snapshot.read_text(encoding="utf-8").rstrip("\n") == _report().to_json()
