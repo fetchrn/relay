@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Secrets / local config — NEVER commit
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# Dashboard
+dashboard/node_modules/
+dashboard/.next/
+dashboard/out/
+dashboard/.vercel/
+
+# OS
+.DS_Store
+
+# Local agent runs (reports are committed selectively under results/)
+/tmp-runs/
