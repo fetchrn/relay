@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Block a push that would leak PII/secrets/private-project data.
+# Enable once with:  git config core.hooksPath .githooks
+set -e
+python3 scripts/leakgate.py . || {
+  echo "pre-push: leak-gate failed — push blocked." >&2
+  exit 1
+}

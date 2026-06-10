@@ -1,0 +1,60 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -e ".[dev,service,llm]"
+      - name: Format check
+        run: ruff format --check relay tests scripts
+      - name: Lint
+        run: ruff check relay tests scripts
+      - name: Type check (strict)
+        run: mypy
+      - name: Test
+        run: pytest -q
+      - name: Leak-gate
+        run: python scripts/leakgate.py .
+
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - name: Regenerate eval snapshot + schema
+        run: |
+          relay eval --out results/demo
+          relay schema --out schema/run-report-v1.json
+      - name: Committed snapshot must match a fresh run
+        run: git diff --exit-code -- results/demo schema/run-report-v1.json
+      - name: Validate snapshot against schema
+        run: >
+          npx --yes ajv-cli@5 validate --spec=draft2020
+          -s schema/run-report-v1.json
+          -d results/demo/eval-report.json
+
+  dashboard:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+      - run: npm run build
