@@ -16,6 +16,19 @@ against each. Every row maps to a test and a golden case.
 
 ## Trust boundaries
 
+- **The ticket's `customer_id` is a pre-authenticated identity, not user input to
+  authenticate.** Relay assumes the calling channel (the authenticated
+  chat/email/session gateway) has already established *who* the end user is and
+  stamps the verified subject onto the ticket — exactly as a real support tool
+  sits behind an authenticated session. Relay's guarantee is **conditional** on
+  that: "given an authenticated customer, the agent cannot act outside that
+  customer's records or policy." Relay does **not** authenticate end users
+  itself. The bundled `POST /tickets` endpoint is a demo harness that trusts
+  `customer_id` verbatim; a production deployment must front it with an auth
+  layer (session/JWT/mTLS) whose verified subject **overrides** any
+  client-supplied id. Without that layer, anyone who can call the endpoint can
+  act as any customer — an authentication gap in the deployment, not a bypass of
+  the gates, which still confine every action to the asserted account.
 - **Ticket content is untrusted.** It can contain anything, including instructions
   aimed at the agent. Nothing in a ticket reaches the authorization checks.
 - **The brain is semi-trusted.** It can be wrong or compromised; the gates contain

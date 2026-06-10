@@ -301,19 +301,26 @@ class ClaudeBrain:
         subscriptions: list[Subscription],
         invoices: list[Invoice],
     ) -> AgentProposal:
-        response = self._client.messages.parse(
-            model=self._model,
-            max_tokens=2048,
-            thinking={"type": "adaptive"},
-            system=_SYSTEM_PROMPT,
-            messages=[
-                {
-                    "role": "user",
-                    "content": _render_context(ticket, customer, subscriptions, invoices),
-                }
-            ],
-            output_format=AgentProposal,
-        )
+        # Fail closed: a refusal, a parse failure, OR any transport/SDK error
+        # (timeout, rate limit, auth, network) all converge on a safe escalation.
+        # A brain that cannot produce a valid proposal must never crash the
+        # pipeline — "failure is escalation" is the invariant.
+        try:
+            response = self._client.messages.parse(
+                model=self._model,
+                max_tokens=2048,
+                thinking={"type": "adaptive"},
+                system=_SYSTEM_PROMPT,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": _render_context(ticket, customer, subscriptions, invoices),
+                    }
+                ],
+                output_format=AgentProposal,
+            )
+        except Exception:  # any model/transport failure escalates safely
+            return default_escalation_proposal(customer.id, "model call failed")
         proposal: AgentProposal | None = response.parsed_output
         if proposal is None:
             return default_escalation_proposal(

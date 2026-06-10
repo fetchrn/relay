@@ -16,6 +16,7 @@ the gates decided upstream. A bug in the agent must not be able to double-refund
 
 from __future__ import annotations
 
+import threading
 from typing import Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict
@@ -76,6 +77,13 @@ class InMemoryBillingStore:
 
     Idempotency keys are honored per operation kind: a repeated call with a key
     already seen returns the recorded receipt and applies no further mutation.
+
+    Mutations are guarded by a lock so the check-then-write (read the balance,
+    verify it covers the refund, write the new balance) is atomic. Without it,
+    two concurrent refunds against one invoice — reachable because FastAPI runs
+    the sync ``/tickets`` handler in a threadpool over one shared store — could
+    both pass the remaining-balance check before either write lands and overdraw
+    the invoice. The lock makes over-refund impossible even under concurrency.
     """
 
     def __init__(self) -> None:
@@ -84,6 +92,7 @@ class InMemoryBillingStore:
         self._invoices: dict[str, Invoice] = {}
         self._refunds: dict[str, RefundReceipt] = {}
         self._cancels: dict[str, CancelReceipt] = {}
+        self._write_lock = threading.Lock()
 
     # --- seeding -----------------------------------------------------------
     def add_customer(self, customer: Customer) -> None:
@@ -115,47 +124,51 @@ class InMemoryBillingStore:
     def issue_refund(
         self, invoice_id: str, amount_cents: int, *, idempotency_key: str
     ) -> RefundReceipt:
-        if idempotency_key in self._refunds:
-            return self._refunds[idempotency_key]
-        if amount_cents <= 0:
-            raise BillingError("refund amount must be positive")
-        invoice = self._invoices.get(invoice_id)
-        if invoice is None:
-            raise BillingError(f"unknown invoice {invoice_id!r}")
-        if amount_cents > invoice.refundable_remaining_cents:
-            raise BillingError(
-                f"refund {amount_cents} exceeds remaining "
-                f"{invoice.refundable_remaining_cents} on {invoice_id!r}"
+        # The whole check-then-write runs under the lock so concurrent refunds
+        # against one invoice can't both pass the balance check and overdraw it.
+        with self._write_lock:
+            if idempotency_key in self._refunds:
+                return self._refunds[idempotency_key]
+            if amount_cents <= 0:
+                raise BillingError("refund amount must be positive")
+            invoice = self._invoices.get(invoice_id)
+            if invoice is None:
+                raise BillingError(f"unknown invoice {invoice_id!r}")
+            if amount_cents > invoice.refundable_remaining_cents:
+                raise BillingError(
+                    f"refund {amount_cents} exceeds remaining "
+                    f"{invoice.refundable_remaining_cents} on {invoice_id!r}"
+                )
+            new_refunded = invoice.refunded_cents + amount_cents
+            new_status = (
+                InvoiceStatus.REFUNDED if new_refunded >= invoice.amount_cents else invoice.status
             )
-        new_refunded = invoice.refunded_cents + amount_cents
-        new_status = (
-            InvoiceStatus.REFUNDED if new_refunded >= invoice.amount_cents else invoice.status
-        )
-        self._invoices[invoice_id] = invoice.model_copy(
-            update={"refunded_cents": new_refunded, "status": new_status}
-        )
-        receipt = RefundReceipt(
-            invoice_id=invoice_id,
-            amount_cents=amount_cents,
-            idempotency_key=idempotency_key,
-            refunded_total_cents=new_refunded,
-        )
-        self._refunds[idempotency_key] = receipt
-        return receipt
+            self._invoices[invoice_id] = invoice.model_copy(
+                update={"refunded_cents": new_refunded, "status": new_status}
+            )
+            receipt = RefundReceipt(
+                invoice_id=invoice_id,
+                amount_cents=amount_cents,
+                idempotency_key=idempotency_key,
+                refunded_total_cents=new_refunded,
+            )
+            self._refunds[idempotency_key] = receipt
+            return receipt
 
     def cancel_subscription(self, subscription_id: str, *, idempotency_key: str) -> CancelReceipt:
-        if idempotency_key in self._cancels:
-            return self._cancels[idempotency_key]
-        subscription = self._subscriptions.get(subscription_id)
-        if subscription is None:
-            raise BillingError(f"unknown subscription {subscription_id!r}")
-        self._subscriptions[subscription_id] = subscription.model_copy(
-            update={"status": SubscriptionStatus.CANCELED}
-        )
-        receipt = CancelReceipt(
-            subscription_id=subscription_id,
-            idempotency_key=idempotency_key,
-            status=SubscriptionStatus.CANCELED,
-        )
-        self._cancels[idempotency_key] = receipt
-        return receipt
+        with self._write_lock:
+            if idempotency_key in self._cancels:
+                return self._cancels[idempotency_key]
+            subscription = self._subscriptions.get(subscription_id)
+            if subscription is None:
+                raise BillingError(f"unknown subscription {subscription_id!r}")
+            self._subscriptions[subscription_id] = subscription.model_copy(
+                update={"status": SubscriptionStatus.CANCELED}
+            )
+            receipt = CancelReceipt(
+                subscription_id=subscription_id,
+                idempotency_key=idempotency_key,
+                status=SubscriptionStatus.CANCELED,
+            )
+            self._cancels[idempotency_key] = receipt
+            return receipt

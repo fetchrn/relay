@@ -209,6 +209,56 @@ def test_store_rejection_fails_closed_to_escalation() -> None:
     assert res.gate_code == "store_rejected"
 
 
+def test_brain_exception_fails_closed_to_escalation() -> None:
+    """Regression for the Codex gate: a brain that raises must escalate, not crash.
+
+    "Failure is escalation" is the orchestrator's invariant. A buggy/custom brain
+    (or an unhandled SDK error) that throws must degrade to a safe escalation —
+    no money moves, an audit record is still written, and the chain stays intact.
+    """
+
+    class _ExplodingBrain:
+        def propose(self, *args: object, **kwargs: object):  # type: ignore[no-untyped-def]
+            raise RuntimeError("brain blew up")
+
+    store = _seeded_store()
+    agent = Agent(brain=_ExplodingBrain(), store=store, clock=_clock)
+    res = agent.handle(_ticket("I was charged twice, refund me"))
+
+    assert res.outcome is Outcome.ESCALATED
+    assert res.executed is False
+    assert res.case_file is not None
+    # Store untouched — no refund applied.
+    inv = store.get_invoice("in_1")
+    assert inv is not None
+    assert inv.refunded_cents == 0
+    # The failure is still auditable and the chain verifies.
+    assert len(agent.audit.records) == 1
+    assert verify_chain(agent.audit.records) is True
+
+
+def test_brain_returning_a_malformed_object_fails_closed_to_escalation() -> None:
+    """Regression for the Codex re-confirm: a brain that returns a non-raising
+    malformed object (not an AgentProposal) must escalate, not crash downstream
+    on `proposal.intent`/`proposal.action`."""
+
+    class _MalformedBrain:
+        def propose(self, *args: object, **kwargs: object):  # type: ignore[no-untyped-def]
+            return {"not": "a proposal"}  # wrong type, no exception raised
+
+    store = _seeded_store()
+    agent = Agent(brain=_MalformedBrain(), store=store, clock=_clock)
+    res = agent.handle(_ticket("I was charged twice, refund me"))
+
+    assert res.outcome is Outcome.ESCALATED
+    assert res.executed is False
+    inv = store.get_invoice("in_1")
+    assert inv is not None
+    assert inv.refunded_cents == 0
+    assert len(agent.audit.records) == 1
+    assert verify_chain(agent.audit.records) is True
+
+
 # --- escalation packet + audit + tracing -------------------------------------
 
 

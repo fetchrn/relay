@@ -13,6 +13,7 @@ and CI. The Stripe adapter is tested separately with an injected fake client.
 from __future__ import annotations
 
 import datetime as dt
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from relay.domain import (
@@ -165,3 +166,36 @@ def test_cancel_unknown_subscription_raises() -> None:
     store = _store()
     with pytest.raises(BillingError):
         store.cancel_subscription("sub_nope", idempotency_key="c1")
+
+
+def test_concurrent_full_refunds_never_overdraw_one_invoice() -> None:
+    """Regression for the Codex gate: the check-then-write must be atomic.
+
+    `in_1` holds $20.00. Many threads each try to refund the *full* $20.00 with a
+    distinct idempotency key — i.e. genuinely distinct refund attempts, not
+    replays. Without a lock, several could pass the remaining-balance check before
+    any write landed and overdraw the invoice. With the lock, exactly one wins;
+    every other raises `BillingError`, and the invoice is never overdrawn.
+
+    Reachable in the shipped default app because FastAPI runs the sync
+    `/tickets` handler in a threadpool over one shared in-memory store.
+    """
+    store = _store()
+    n = 32
+
+    def attempt(i: int) -> bool:
+        try:
+            store.issue_refund("in_1", 2000, idempotency_key=f"race_{i}")
+            return True
+        except BillingError:
+            return False
+
+    with ThreadPoolExecutor(max_workers=n) as pool:
+        results = list(pool.map(attempt, range(n)))
+
+    assert sum(results) == 1  # exactly one distinct refund succeeded
+    inv = store.get_invoice("in_1")
+    assert inv is not None
+    assert inv.refunded_cents == 2000  # never overdrawn
+    assert inv.refundable_remaining_cents == 0
+    assert inv.status is InvoiceStatus.REFUNDED

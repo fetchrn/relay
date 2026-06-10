@@ -32,7 +32,7 @@ from relay.actions import (
     RefundAction,
 )
 from relay.audit import AuditLog, redact
-from relay.brain import Brain
+from relay.brain import Brain, default_escalation_proposal
 from relay.domain import Ticket
 from relay.grounding import GroundingContext, GroundingResult, check_grounding
 from relay.observability import current_trace_id, get_tracer
@@ -121,7 +121,20 @@ class Agent:
             invoices = self.store.get_invoices(ticket.customer_id)
 
             with tracer.start_as_current_span("relay.brain.propose"):
-                proposal = self.brain.propose(ticket, customer, subs, invoices)
+                # Failure is escalation: a brain that raises (a buggy custom
+                # brain, an unhandled SDK error) must not crash the pipeline or
+                # — worse — bypass it. Any exception degrades to a safe,
+                # fully-grounded escalation that still runs the gates and is
+                # recorded in the audit chain.
+                try:
+                    proposal = self.brain.propose(ticket, customer, subs, invoices)
+                    # A brain that returns a malformed object (not an
+                    # AgentProposal) must not crash downstream either — treat a
+                    # bad return the same as a raise: escalate.
+                    if not isinstance(proposal, AgentProposal):
+                        raise TypeError("brain returned a non-AgentProposal")
+                except Exception:  # any brain failure escalates safely
+                    proposal = default_escalation_proposal(ticket.customer_id, "brain error")
             span.set_attribute("intent", proposal.intent)
             span.set_attribute("action", proposal.action.type)
 

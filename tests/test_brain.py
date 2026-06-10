@@ -199,3 +199,24 @@ def test_claude_brain_falls_back_to_escalation_when_parse_returns_none() -> None
     p = brain.propose(_ticket("anything"), CUSTOMER, [SUB], [INVOICE])
     assert isinstance(p.action, EscalateAction)
     assert p.confidence == 0.0
+
+
+def test_claude_brain_fails_closed_when_the_model_call_raises() -> None:
+    """A transport/SDK error (timeout, rate limit, auth) escalates — never crashes.
+
+    Regression for the Codex gate: previously only `parsed_output is None` was
+    handled, so an exception from `messages.parse` propagated as a 500 instead of
+    degrading to a safe escalation.
+    """
+
+    class _RaisingClient:
+        class messages:
+            @staticmethod
+            def parse(**kwargs: Any) -> Any:
+                raise RuntimeError("transient API failure")
+
+    brain = ClaudeBrain(client=_RaisingClient())
+    p = brain.propose(_ticket("please refund in_1"), CUSTOMER, [SUB], [INVOICE])
+    assert isinstance(p.action, EscalateAction)
+    assert p.confidence == 0.0
+    assert p.grounding.customer_id == CUSTOMER.id

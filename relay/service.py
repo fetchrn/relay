@@ -5,6 +5,17 @@ to end and returns the full :class:`~relay.agent.TicketResolution` — outcome,
 controlling gate code, customer reply, and (on escalation) the case file. The
 default app is wired to the deterministic demo world so it runs with no API key;
 pass your own :class:`~relay.agent.Agent` to point it at a real brain and store.
+
+**Authentication is out of scope and assumed upstream.** A ticket's
+``customer_id`` is a *pre-authenticated identity assertion* supplied by the
+calling channel (the authenticated chat/email/session gateway that already knows
+who the end user is) — exactly as a real support tool sits behind an
+authenticated session. Relay's guarantee is *conditional* on that identity:
+"given an authenticated customer, the agent cannot act outside that customer's
+records or policy." This demo endpoint trusts ``customer_id`` verbatim and does
+**not** authenticate the end user; a production deployment must put an auth layer
+(session/JWT/mTLS, with the verified subject overriding any client-supplied id)
+in front of it. See docs/THREAT-MODEL.md ("Trust boundaries").
 """
 
 from __future__ import annotations
@@ -38,6 +49,9 @@ def create_app(agent: Agent | None = None) -> FastAPI:
 
     @app.post("/tickets")
     def handle_ticket(req: TicketRequest) -> TicketResolution:
+        # NOTE: `req.customer_id` is trusted as a pre-authenticated identity here
+        # (demo). In production an auth dependency must resolve the verified
+        # subject and override any client-supplied customer_id. See module docs.
         ticket = Ticket(
             id=req.ticket_id or f"tkt_{uuid.uuid4().hex}",
             customer_id=req.customer_id,
