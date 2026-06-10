@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Relay — eval dashboard</title>
+  <style>
+    :root {
+      --bg: #0f1419; --panel: #171c24; --line: #232a35; --ink: #e6edf3;
+      --muted: #8b97a6; --good: #2ea043; --warn: #d29922; --bad: #f85149; --accent: #2f81f7;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink);
+           font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 32px 20px 64px; }
+    h1 { font-size: 22px; margin: 0 0 4px; }
+    .sub { color: var(--muted); margin: 0 0 24px; font-size: 13px; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+    .card .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+    .card .value { font-size: 30px; font-weight: 650; margin-top: 6px; }
+    .card .note { color: var(--muted); font-size: 12px; margin-top: 4px; }
+    .card.hero { border-color: var(--good); }
+    .card.hero .value { color: var(--good); }
+    .card.vanity .value { color: var(--muted); }
+    h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted);
+         margin: 32px 0 12px; }
+    table { width: 100%; border-collapse: collapse; background: var(--panel);
+            border: 1px solid var(--line); border-radius: 10px; overflow: hidden; font-size: 13px; }
+    th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+    tr:last-child td { border-bottom: none; }
+    code { background: #0b0e12; padding: 1px 6px; border-radius: 5px; font-size: 12px; }
+    .pill { padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+    .resolved { background: rgba(46,160,67,.15); color: var(--good); }
+    .escalated { background: rgba(47,129,247,.15); color: var(--accent); }
+    .yes { color: var(--bad); font-weight: 700; }
+    .ok { color: var(--good); }
+    .x { color: var(--bad); }
+    .cat { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+    .cat .name { width: 120px; color: var(--muted); font-size: 12px; }
+    .bar { flex: 1; height: 8px; background: #0b0e12; border-radius: 999px; overflow: hidden; }
+    .bar > span { display: block; height: 100%; background: var(--accent); }
+    .foot { color: var(--muted); font-size: 12px; margin-top: 32px; }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Relay — eval dashboard</h1>
+    <p class="sub" id="subtitle"></p>
+    <div class="cards" id="cards"></div>
+
+    <h2>By category</h2>
+    <div id="categories"></div>
+
+    <h2>Cases</h2>
+    <table id="cases">
+      <thead><tr>
+        <th>case</th><th>category</th><th>expected</th><th>actual</th>
+        <th>gate code</th><th>unsafe</th><th>correct</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <p class="foot">
+      Static report of one deterministic run — see
+      <a href="https://github.com/relay-agent/relay/blob/main/docs/HONESTY.md">HONESTY.md</a>
+      for what these numbers claim. The headline guarantee is
+      <strong>unsafe-action rate 0%</strong>; deflection is shown as the vanity metric it is.
+    </p>
+  </div>
+
+  <script src="report-data.js"></script>
+  <script>
+    const r = window.RELAY_REPORT;
+    const pct = (x) => (x * 100).toFixed(0) + "%";
+
+    document.getElementById("subtitle").textContent =
+      `brain: ${r.brain} · generated ${r.generated_at} · ${r.metrics.total} cases`;
+
+    const m = r.metrics;
+    const cards = [
+      { label: "Automated resolution", value: pct(m.automated_resolution_rate),
+        note: "correct + autonomous (the honest headline)", cls: "" },
+      { label: "Unsafe-action rate", value: pct(m.unsafe_action_rate),
+        note: `${m.unsafe}/${m.total} unsafe state changes`, cls: "hero" },
+      { label: "Escalation rate", value: pct(m.escalation_rate),
+        note: "routed to a human with a case file", cls: "" },
+      { label: "Deflection rate", value: pct(m.deflection_rate),
+        note: "vanity metric — didn't reach a human", cls: "vanity" },
+      { label: "Accuracy", value: pct(m.accuracy),
+        note: "outcome matched the label", cls: "" },
+      { label: "Audit chain", value: r.audit.verified ? "verified" : "FAILED",
+        note: `${r.audit.records} hash-chained records`, cls: "" },
+    ];
+    document.getElementById("cards").innerHTML = cards.map((c) => `
+      <div class="card ${c.cls}">
+        <div class="label">${c.label}</div>
+        <div class="value">${c.value}</div>
+        <div class="note">${c.note}</div>
+      </div>`).join("");
+
+    const cats = Object.entries(r.by_category).sort();
+    document.getElementById("categories").innerHTML = cats.map(([name, cm]) => `
+      <div class="cat">
+        <div class="name">${name}</div>
+        <div class="bar"><span style="width:${pct(cm.automated_resolution_rate)}"></span></div>
+        <div class="note" style="width:200px;color:var(--muted);font-size:12px">
+          ${pct(cm.automated_resolution_rate)} resolved · ${cm.total} cases ·
+          ${cm.unsafe} unsafe
+        </div>
+      </div>`).join("");
+
+    document.querySelector("#cases tbody").innerHTML = r.cases.map((c) => `
+      <tr>
+        <td><code>${c.case_id}</code></td>
+        <td>${c.category}</td>
+        <td>${c.expected_outcome}</td>
+        <td><span class="pill ${c.actual_outcome}">${c.actual_outcome}</span></td>
+        <td><code>${c.actual_code}</code></td>
+        <td class="${c.unsafe ? "yes" : ""}">${c.unsafe ? "UNSAFE" : "—"}</td>
+        <td class="${c.correct ? "ok" : "x"}">${c.correct ? "✓" : "✗"}</td>
+      </tr>`).join("");
+  </script>
+</body>
+</html>

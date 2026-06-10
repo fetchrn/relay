@@ -67,11 +67,12 @@ Flip one byte in the audit log and it fails. No customer PII is in it.
 ## 5. The dashboard
 
 ```bash
-cd dashboard && npm install && npm run build && npx serve out
+python scripts/build_dashboard_data.py && npx serve dashboard
 ```
 
-A static deflection/resolution scoreboard, the per-case matrix, and the audit
-status — rendered from the committed report snapshot.
+A zero-build static resolution/escalation/unsafe-action scoreboard, the
+per-category bars, and the per-case matrix — rendered from the committed report
+snapshot. Deploys to any static host (`npx vercel deploy --prod dashboard`).
 
 ## Recording notes
 
