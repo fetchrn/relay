@@ -95,12 +95,15 @@ class Agent:
         store: BillingStore,
         config: PolicyConfig | None = None,
         clock: Callable[[], dt.datetime] | None = None,
+        audit: AuditLog | None = None,
     ) -> None:
         self.brain = brain
         self.store = store
         self.config = config or PolicyConfig()
         self._clock = clock or (lambda: dt.datetime.now(dt.UTC))
-        self.audit = AuditLog()
+        # An audit log can be shared across agents (e.g. one chain for a whole
+        # eval suite) by passing it in; otherwise each agent owns its own.
+        self.audit = audit if audit is not None else AuditLog()
 
     def handle(self, ticket: Ticket) -> TicketResolution:
         tracer = get_tracer()
