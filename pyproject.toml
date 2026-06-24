@@ -53,8 +53,8 @@ dev = [
 relay = "relay.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/relay-agent/relay"
-Repository = "https://github.com/relay-agent/relay"
+Homepage = "https://github.com/fetchrn/relay"
+Repository = "https://github.com/fetchrn/relay"
 
 [build-system]
 requires = ["hatchling"]
