@@ -45,6 +45,19 @@ _SENSITIVE_KEYWORDS = (
     "medical advice",
     "discriminat",
     "harass",
+    # Customer distress / self-harm phrasing (red-team hardening): a person in
+    # crisis must reach a human, never an auto-action. These are specific enough
+    # to crisis language that they don't fire on routine billing tickets.
+    "breaking point",
+    "cannot deal",
+    "can't deal",
+    "cannot cope",
+    "can't cope",
+    "can't go on",
+    "harm myself",
+    "hurt myself",
+    "kill myself",
+    "end my life",
 )
 _REFUND_SIGNALS = ("refund", "charged twice", "double charge", "money back", "overcharged")
 _QUESTION_WORDS = ("what", "when", "how", "why", "where", "which", "can i", "do i")

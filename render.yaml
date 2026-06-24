@@ -1,0 +1,14 @@
+# One-click deploy of the live Relay demo API to Render (free tier).
+# Render dashboard → New → Blueprint → connect github.com/fetchrn/relay.
+# Runs entirely on the deterministic MockBrain + in-memory demo world:
+# no ANTHROPIC_API_KEY, no database, nothing to leak. The free tier sleeps
+# after ~15 min idle, so the first request cold-starts (~10s) — warm it before a demo.
+services:
+  - type: web
+    name: relay-demo
+    runtime: python
+    plan: free
+    buildCommand: pip install -e ".[service]"
+    startCommand: python -m uvicorn relay.service:create_app --factory --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz
+    autoDeploy: true

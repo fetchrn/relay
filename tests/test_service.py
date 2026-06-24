@@ -11,6 +11,19 @@ def test_healthz() -> None:
     assert client.get("/healthz").json()["status"] == "ok"
 
 
+def test_root_landing_page_is_helpful_html() -> None:
+    # A recruiter pasting the bare service URL does GET / — it must explain
+    # itself and link to the interactive docs, not return {"detail":"Not Found"}.
+    client = TestClient(create_app())
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    body = r.text
+    assert "Relay" in body
+    assert "/docs" in body  # links to the point-and-click Swagger demo
+    assert "/tickets" in body
+
+
 def test_post_in_policy_refund_resolves() -> None:
     client = TestClient(create_app())
     r = client.post(

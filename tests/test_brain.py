@@ -117,6 +117,21 @@ def test_mock_brain_flags_sensitive_topics() -> None:
     assert p.sensitive_topic is True
 
 
+def test_mock_brain_flags_customer_distress_as_sensitive() -> None:
+    # Red-team finding: distress/self-harm phrasing must reach a human, even when
+    # the ticket also asks for a routine action like a cancellation. Keyword
+    # detection previously only knew explicit terms ("suicide"); nuanced distress
+    # ("breaking point", "cannot deal", "harm myself") slipped through.
+    brain = MockBrain()
+    for phrase in (
+        "this billing mess has me at my breaking point, cancel everything",
+        "I cannot deal with this anymore, please cancel my subscription",
+        "I might harm myself over this, just cancel it",
+    ):
+        p = brain.propose(_ticket(phrase), CUSTOMER, [SUB], [INVOICE])
+        assert p.sensitive_topic is True, phrase
+
+
 def test_mock_brain_escalates_when_no_refundable_invoice_exists() -> None:
     brain = MockBrain()
     p = brain.propose(_ticket("refund me please"), CUSTOMER, [SUB], [])  # no invoices
