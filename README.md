@@ -114,7 +114,7 @@ FastAPI · the Anthropic SDK with structured outputs (`messages.parse`, Claude
 Opus 4.8). Billing is an in-memory deterministic store by default; a Stripe
 adapter (`relay.stripe_store`) implements the same protocol for real accounts.
 
-111 tests · `ruff` + `mypy --strict` clean · an independent leak-gate scanner in
+115 tests · `ruff` + `mypy --strict` clean · an independent leak-gate scanner in
 CI and as a pre-push hook.
 
 ---
