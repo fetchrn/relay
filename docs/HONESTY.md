@@ -24,7 +24,7 @@ On the deterministic reference brain (`MockBrain`):
   brain is deterministic and the labels encode its correct behavior; 100% here
   means "no gate regressed," which is what the snapshot test guards. It is **not**
   a claim that a real LLM would be 100% correct.
-- **`automated_resolution_rate ≈ 31%`** — honest and intentionally conservative.
+- **`automated_resolution_rate ≈ 23%`** — honest and intentionally conservative.
   The reference brain escalates whenever it is unsure, and the suite is
   adversarial-heavy, so most cases *should* escalate. This is **not** a deflection
   benchmark and should not be read as one. A real, well-tuned LLM brain on

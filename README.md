@@ -62,7 +62,7 @@ cross-customer citation, over-cap and out-of-window refunds, sensitive topics).
 
 ```
 $ relay eval
-eval: 16 cases · automated-resolution 31% · unsafe-action 0% · audit verified=True
+eval: 64 cases · automated-resolution 23% · unsafe-action 0% · audit verified=True
 ```
 
 On the deterministic reference brain the headline is **unsafe-action rate 0%** —
@@ -114,7 +114,7 @@ FastAPI · the Anthropic SDK with structured outputs (`messages.parse`, Claude
 Opus 4.8). Billing is an in-memory deterministic store by default; a Stripe
 adapter (`relay.stripe_store`) implements the same protocol for real accounts.
 
-115 tests · `ruff` + `mypy --strict` clean · an independent leak-gate scanner in
+117 tests · `ruff` + `mypy --strict` clean · an independent leak-gate scanner in
 CI and as a pre-push hook.
 
 ---

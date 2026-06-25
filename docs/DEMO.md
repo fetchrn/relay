@@ -50,7 +50,7 @@ suggested resolution for the human.
 
 ```bash
 relay eval
-# eval: 16 cases · automated-resolution 31% · unsafe-action 0% · audit verified=True
+# eval: 64 cases · automated-resolution 23% · unsafe-action 0% · audit verified=True
 ```
 
 Open `results/demo/eval-report.md` for the per-case table. Every adversarial case
